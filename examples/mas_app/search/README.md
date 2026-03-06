@@ -95,6 +95,12 @@ python scripts/run_opensearch_retrieval_service.py \
 - 请求体兼容本项目 SearchClient：`{"query":"...", "topk":3, "return_scores":true}`
 - 你的 OpenSearch 文档至少需要有 `contents/content/text` 其中一个字段
 
+将检索 URL 写入环境变量（推荐）：
+
+```bash
+export SEARCH_MAS_RETRIEVAL_SERVICE_URL=http://127.0.0.1:18080/retrieve
+```
+
 可用以下命令快速验证：
 
 ```bash
@@ -113,33 +119,75 @@ bash scripts/deploy_searchr1_retrieval_service.sh
 
 说明：
 - 该脚本封装了：创建 `retriever` conda 环境并安装依赖（`numpy/torch/faiss-gpu/uvicorn/fastapi` 等）、下载索引与语料、合并 `part_*` 为 `e5_Flat.index`、解压 `wiki-18.jsonl.gz`、启动 `/retrieve` 服务。
-- 默认使用 `conda` 环境 `retriever`、数据目录 `~/data/searchR1`、端口 `8000`，日志写入 `retrieval_server.log`。
-- 可通过参数覆盖：
+- 默认使用 `conda` 环境 `retriever`、数据目录 `/data1/lll/datasets/wiki-18`、端口 `8010`、模型 `/data1/lll/models/e5-base-v2`，日志写入 `retrieval_server.log`。
+- 推荐通过环境变量配置：
+
+```bash
+export SEARCH_MAS_SEARCHR1_LOCAL_DIR=/data1/lll/datasets/wiki-18
+export SEARCH_MAS_SEARCHR1_PORT=8010
+export SEARCH_MAS_SEARCHR1_RETRIEVER_MODEL=/data1/lll/models/e5-base-v2
+export SEARCH_MAS_RETRIEVAL_SERVICE_URL=http://127.0.0.1:${SEARCH_MAS_SEARCHR1_PORT}/retrieve
+```
+
+- 也可通过命令参数覆盖（命令参数优先级高于环境变量）：
 
 ```bash
 bash scripts/deploy_searchr1_retrieval_service.sh \
-  --drmas-root /path/to/DrMAS \
-  --local-dir ~/data/searchR1 \
+  --local-dir /data1/lll/datasets/wiki-18 \
   --conda-env retriever \
-  --port 8000 \
+  --port 8010 \
+  --retriever-model /data1/lll/models/e5-base-v2 \
   --log-file retrieval_server.log
 ```
 
 - 若你已手动准备好环境，可加 `--skip-env-setup` 跳过 conda 环境创建与依赖安装。
 - 若环境已存在但希望重装依赖，可加 `--force-env-setup`。
-- 若使用该服务，请将 `search.retrieval_service_url` 配置为 `http://127.0.0.1:8000/retrieve`。
+- 若使用该服务，建议设置 `export SEARCH_MAS_RETRIEVAL_SERVICE_URL=http://127.0.0.1:8010/retrieve`（或使用你自定义的端口）。
 - 与上面的 OpenSearch 检索服务是替代关系，二选一即可。
 
-### 4) 单题推理
+### 4) 配置环境变量（OpenAI / vLLM）
+
+本项目支持用环境变量覆盖 YAML 中的 LLM 配置，推荐用环境变量切换 OpenAI 官方接口和本地 vLLM。
+
+全局 LLM 变量（优先级高于 YAML）：
+- `SEARCH_MAS_LLM_BASE_URL`
+- `SEARCH_MAS_LLM_API_KEY`
+- `SEARCH_MAS_LLM_MODEL`
+
+兼容别名（等价可选）：
+- `OPENAI_BASE_URL`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+
+可选扩展：
+- 按 Agent 单独覆盖：`SEARCH_MAS_VERIFIER_LLM_*`、`SEARCH_MAS_SEARCHER_LLM_*`、`SEARCH_MAS_ANSWERER_LLM_*`
+- 检索地址：`SEARCH_MAS_RETRIEVAL_SERVICE_URL`
+
+OpenAI 官方接口示例：
 
 ```bash
-export OPENAI_API_KEY=xxx
+export SEARCH_MAS_LLM_BASE_URL=https://api.openai.com/v1
+export SEARCH_MAS_LLM_API_KEY=sk-xxx
+export SEARCH_MAS_LLM_MODEL=gpt-4.1-mini
+```
+
+vLLM 本地接口示例：
+
+```bash
+export SEARCH_MAS_LLM_BASE_URL=http://127.0.0.1:8000/v1
+export SEARCH_MAS_LLM_API_KEY=EMPTY
+export SEARCH_MAS_LLM_MODEL=/data1/lll/models/Qwen3-4B-Instruct-2507
+```
+
+### 5) 单题推理
+
+```bash
 python scripts/run_search_mas.py \
   --config configs/search_mas_example.yaml \
   --question "Who won the 2014 FIFA World Cup?"
 ```
 
-### 5) 黑盒验证（全量遍历 + 打分 + 准确率）
+### 6) 黑盒验证（全量遍历 + 打分 + 准确率）
 
 ```bash
 python scripts/validate_search_mas.py \
@@ -155,9 +203,13 @@ python scripts/validate_search_mas.py \
 
 `configs/search_mas_example.yaml` 关键字段：
 - `llm.base_url` + `llm.api_key` + `llm.model`：OpenAI 兼容调用（OpenAI / vLLM 都可）
+  - 推荐通过环境变量覆盖：`SEARCH_MAS_LLM_BASE_URL` / `SEARCH_MAS_LLM_API_KEY` / `SEARCH_MAS_LLM_MODEL`
+  - 兼容别名：`OPENAI_BASE_URL` / `OPENAI_API_KEY` / `OPENAI_MODEL`
 - `search.retrieval_service_url`：检索服务地址（兼容 DrMAS Search-R1 本地检索服务）
+  - 推荐通过环境变量覆盖：`SEARCH_MAS_RETRIEVAL_SERVICE_URL`
 - `application.max_turns`：最大多轮步数
 - `agents.<agent>.llm.*`：可为 `verifier/searcher/answerer` 单独覆盖 LLM 后端（`base_url/api_key/timeout/max_retries/retry_backoff_sec/model`）
+  - 环境变量前缀：`SEARCH_MAS_VERIFIER_LLM_*` / `SEARCH_MAS_SEARCHER_LLM_*` / `SEARCH_MAS_ANSWERER_LLM_*`
 - `agents.*`：不同 Agent 的采样参数（`temperature/top_p/max_tokens/stop/extra_body`）
 - `validation.use_substring_em`：验证模式（EM 或 SubEM）
 
@@ -181,5 +233,5 @@ agents:
 
 search:
   provider: http
-  retrieval_service_url: http://127.0.0.1:18080/retrieve
+  retrieval_service_url: ${SEARCH_MAS_RETRIEVAL_SERVICE_URL}
 ```

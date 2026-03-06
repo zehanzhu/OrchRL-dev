@@ -65,7 +65,7 @@ class OpenAICompatibleLLM:
 
 def build_llm_backend(llm_cfg: dict[str, Any]) -> OpenAICompatibleLLM:
     return OpenAICompatibleLLM(
-        base_url=str(llm_cfg.get("base_url", "https://api.openai.com/v1")),
+        base_url=str(llm_cfg.get("base_url") or "https://api.openai.com/v1"),
         api_key=str(llm_cfg.get("api_key") or "EMPTY"),
         timeout=float(llm_cfg.get("timeout", 120.0)),
         max_retries=int(llm_cfg.get("max_retries", 3)),

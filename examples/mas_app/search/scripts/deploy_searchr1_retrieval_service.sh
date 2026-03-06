@@ -4,23 +4,29 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOWNLOAD_SCRIPT="${SCRIPT_DIR}/searchr1_download.py"
 RETRIEVAL_SERVER_SCRIPT="${SCRIPT_DIR}/retrieval_server.py"
-# LOCAL_DIR="${HOME}/data/searchR1"
-LOCAL_DIR="/data1/lll/datasets/wiki-18"
+# Environment-variable configurable defaults:
+#   SEARCH_MAS_SEARCHR1_LOCAL_DIR
+#   SEARCH_MAS_SEARCHR1_PORT
+#   SEARCH_MAS_SEARCHR1_RETRIEVER_MODEL
+LOCAL_DIR="${SEARCH_MAS_SEARCHR1_LOCAL_DIR:-${LOCAL_DIR:-/data1/lll/datasets/wiki-18}}"
 CONDA_ENV="retriever"
-PORT="8010"
+PORT="${SEARCH_MAS_SEARCHR1_PORT:-${PORT:-8010}}"
+RETRIEVER_MODEL="${SEARCH_MAS_SEARCHR1_RETRIEVER_MODEL:-${RETRIEVER_MODEL:-/data1/lll/models/e5-base-v2}}"
 LOG_FILE="retrieval_server.log"
 SETUP_ENV="1"
 FORCE_ENV_SETUP="0"
 
 print_usage() {
-  cat <<'EOF'
+  cat <<EOF
 Usage:
   bash scripts/deploy_searchr1_retrieval_service.sh [options]
 
 Options:
-  --local-dir PATH    Directory to store index/corpus files (default: ~/data/searchR1).
+  --local-dir PATH    Directory to store index/corpus files (env: SEARCH_MAS_SEARCHR1_LOCAL_DIR, default: ${LOCAL_DIR}).
   --conda-env NAME    Conda env name for retriever (default: retriever).
-  --port PORT         Retrieval service port (default: 8000).
+  --port PORT         Retrieval service port (env: SEARCH_MAS_SEARCHR1_PORT, default: ${PORT}).
+  --retriever-model PATH
+                     Retrieval encoder model path (env: SEARCH_MAS_SEARCHR1_RETRIEVER_MODEL, default: ${RETRIEVER_MODEL}).
   --log-file PATH     Log file path (default: retrieval_server.log).
   --skip-env-setup    Skip conda env creation/dependency installation.
   --force-env-setup   Reinstall retriever dependencies even if env already exists.
@@ -40,6 +46,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --port)
       PORT="$2"
+      shift 2
+      ;;
+    --retriever-model)
+      RETRIEVER_MODEL="$2"
       shift 2
       ;;
     --log-file)
@@ -150,12 +160,14 @@ if [[ ! -f "${LOCAL_DIR}/wiki-18.jsonl" ]]; then
 fi
 
 echo "[4/4] Starting retrieval server on port ${PORT}. Logs: ${LOG_FILE}"
+echo "      Local dir: ${LOCAL_DIR}"
+echo "      Retriever model: ${RETRIEVER_MODEL}"
 python "${RETRIEVAL_SERVER_SCRIPT}" \
   --index_path "${LOCAL_DIR}/e5_Flat.index" \
   --corpus_path "${LOCAL_DIR}/wiki-18.jsonl" \
   --topk 3 \
   --retriever_name e5 \
-  --retriever_model /data1/lll/models/e5-base-v2 \
+  --retriever_model "${RETRIEVER_MODEL}" \
   --faiss_gpu \
   --port "${PORT}" \
   > "${LOG_FILE}"
