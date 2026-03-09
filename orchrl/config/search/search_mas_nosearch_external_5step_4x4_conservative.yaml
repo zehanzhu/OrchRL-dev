@@ -1,0 +1,50 @@
+defaults:
+- search_mas_nosearch_external
+- _self_
+
+training:
+  total_training_steps: 5
+  project_name: orchrl
+  experiment_name: search_mas_train_5x4x4_conservative
+  logger:
+  - console
+  model_checkpoints_dir: checkpoints/search_mas_train_5x4x4_conservative
+  train_batch_size: 4
+  train_sample_num: 4
+  validate_sample_num: 1
+  val_freq: 9999
+
+models:
+  model_0:
+    ppo_trainer_config:
+      actor_rollout_ref:
+        actor:
+          ppo_max_token_len_per_gpu: 8192
+        ref:
+          log_prob_micro_batch_size_per_gpu: 4
+          log_prob_max_token_len_per_gpu: 8192
+        rollout:
+          max_num_batched_tokens: 8192
+          max_num_seqs: 64
+  model_1:
+    ppo_trainer_config:
+      actor_rollout_ref:
+        actor:
+          ppo_max_token_len_per_gpu: 8192
+        ref:
+          log_prob_micro_batch_size_per_gpu: 4
+          log_prob_max_token_len_per_gpu: 8192
+        rollout:
+          max_num_batched_tokens: 8192
+          max_num_seqs: 64
+  model_2:
+    ppo_trainer_config:
+      actor_rollout_ref:
+        actor:
+          ppo_max_token_len_per_gpu: 8192
+        ref:
+          log_prob_micro_batch_size_per_gpu: 4
+          log_prob_max_token_len_per_gpu: 8192
+        rollout:
+          max_num_batched_tokens: 8192
+          max_num_seqs: 64
