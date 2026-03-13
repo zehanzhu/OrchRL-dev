@@ -26,7 +26,8 @@ class BaseChatAgent:
         )
         messages = self.build_messages(prompt)
         response = self.llm.chat(messages, self.generation_config)
-        print(f"{self.name}: {response.replace(chr(10), '\\n')}")
+        sanitized = response.replace('\n', '\\n')
+        print(f"{self.name}: {sanitized}")
         return response
 
     def build_messages(self, prompt: str) -> list[dict[str, Any]]:
